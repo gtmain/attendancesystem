@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>YMRMC · Check In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  :root{
+    --bg:#12181B; --panel:#1B2328; --panel-2:#212B31; --border:#2A343A;
+    --text:#EDEFF1; --muted:#8A9499; --accent:#4ADE80; --amber:#F5A524; --red:#F0553F;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; overflow:hidden;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif; margin:0;}
+  .screen{position:fixed; inset:0; display:none; flex-direction:column;}
+  .screen.active{display:flex;}
+
+  /* ---------- Login ---------- */
+  #login-screen{align-items:center; justify-content:center; padding:24px;}
+  .login-card{width:100%; max-width:340px; background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:30px;}
+  .eyebrow{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; color:var(--accent); text-transform:uppercase; margin-bottom:8px;}
+  input{width:100%; background:var(--panel-2); border:1px solid var(--border); color:var(--text); padding:13px 14px; border-radius:9px; font-size:15px; margin-top:6px;}
+  input:focus{outline:none; border-color:var(--accent);}
+  label{font-size:12px; color:var(--muted); display:block; margin-top:16px;}
+  button{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:15px; cursor:pointer; border-radius:10px; border:none; padding:14px;}
+  .btn-primary{background:var(--accent); color:#0A1210; width:100%; margin-top:22px;}
+  .btn-primary:disabled{opacity:.5;}
+  .btn-secondary{background:var(--panel-2); color:var(--text); border:1px solid var(--border); width:100%; margin-top:10px;}
+  .err{color:var(--red); font-size:13px; margin-top:10px; min-height:16px;}
+
+  /* ---------- Header shared ---------- */
+  .topbar{display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); flex-shrink:0;}
+  .who{font-size:13px; color:var(--muted);}
+  .who span{color:var(--text); font-family:'JetBrains Mono',monospace;}
+  .link-btn{background:none; border:none; color:var(--muted); font-size:13px; text-decoration:underline; padding:4px;}
+
+  /* ---------- Locate screen (radar) ---------- */
+  #locate-screen .body{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; text-align:center;}
+  .radar{position:relative; width:220px; height:220px; margin-bottom:26px;}
+  .ring{position:absolute; border-radius:50%; border:1px solid var(--border); top:50%; left:50%; transform:translate(-50%,-50%);}
+  .ring.r1{width:220px; height:220px;}
+  .ring.r2{width:150px; height:150px;}
+  .ring.r3{width:80px; height:80px;}
+  .radar-pulse{position:absolute; top:50%; left:50%; width:16px; height:16px; border-radius:50%; background:var(--accent); transform:translate(-50%,-50%); box-shadow:0 0 0 0 rgba(74,222,128,.6); animation:pulse 1.8s infinite;}
+  .radar-pulse.warn{background:var(--amber); box-shadow:0 0 0 0 rgba(245,165,36,.6); animation:pulseWarn 1.8s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(74,222,128,.5);}70%{box-shadow:0 0 0 26px rgba(74,222,128,0);}100%{box-shadow:0 0 0 0 rgba(74,222,128,0);}}
+  @keyframes pulseWarn{0%{box-shadow:0 0 0 0 rgba(245,165,36,.5);}70%{box-shadow:0 0 0 26px rgba(245,165,36,0);}100%{box-shadow:0 0 0 0 rgba(245,165,36,0);}}
+  .distance-readout{font-size:44px; font-family:'JetBrains Mono',monospace; font-weight:600;}
+  .distance-readout.warn{color:var(--amber);}
+  .distance-readout.ok{color:var(--accent);}
+  .distance-unit{font-size:15px; color:var(--muted); margin-top:-4px;}
+  .accuracy-note{font-size:12px; color:var(--muted); margin-top:10px; font-family:'JetBrains Mono',monospace;}
+  .status-tag{margin-top:16px; padding:6px 14px; border-radius:20px; font-size:12px; font-family:'JetBrains Mono',monospace;}
+  .status-tag.ok{background:rgba(74,222,128,.14); color:var(--accent);}
+  .status-tag.warn{background:rgba(245,165,36,.14); color:var(--amber);}
+  .footer-cta{padding:20px 24px 30px; flex-shrink:0;}
+
+  /* ---------- Camera screen ---------- */
+  #camera-screen{background:#000;}
+  #camera-screen video, #camera-screen canvas{width:100%; height:100%; object-fit:cover;}
+  .camera-wrap{position:relative; flex:1; overflow:hidden;}
+  .camera-overlay-top{position:absolute; top:0; left:0; right:0; padding:16px 20px; background:linear-gradient(to bottom, rgba(0,0,0,.6), transparent); z-index:2;}
+  .camera-overlay-bottom{position:absolute; bottom:0; left:0; right:0; padding:24px; display:flex; align-items:center; justify-content:center; background:linear-gradient(to top, rgba(0,0,0,.7), transparent); z-index:2;}
+  .shutter{width:74px; height:74px; border-radius:50%; background:#fff; border:5px solid rgba(255,255,255,.35);}
+  .badge-pill{display:inline-block; padding:5px 12px; border-radius:20px; font-size:11px; font-family:'JetBrains Mono',monospace; background:rgba(74,222,128,.18); color:var(--accent);}
+  .badge-pill.warn{background:rgba(245,165,36,.18); color:var(--amber);}
+
+  /* ---------- Review screen ---------- */
+  #review-screen{background:var(--bg);}
+  .review-photo{flex:1; overflow:hidden; background:#000;}
+  .review-photo img{width:100%; height:100%; object-fit:cover; display:block;}
+  .review-panel{padding:20px 24px 26px; background:var(--panel); border-top:1px solid var(--border); flex-shrink:0;}
+  .meta-row{display:flex; justify-content:space-between; font-size:13px; padding:6px 0; border-bottom:1px solid var(--border);}
+  .meta-row span:first-child{color:var(--muted);}
+  .meta-row span:last-child{font-family:'JetBrains Mono',monospace;}
+  .btn-row{display:flex; gap:10px; margin-top:16px;}
+  .btn-row button{flex:1; margin:0;}
+
+  /* ---------- Success screen ---------- */
+  #success-screen{align-items:center; justify-content:center; text-align:center; padding:24px;}
+  .check-circle{width:76px; height:76px; border-radius:50%; background:rgba(74,222,128,.14); display:flex; align-items:center; justify-content:center; margin:0 auto 20px;}
+  .check-circle svg{width:36px; height:36px;}
+  .spinner{width:16px; height:16px; border:2px solid rgba(255,255,255,.25); border-top-color:#0A1210; border-radius:50%; display:inline-block; animation:spin .7s linear infinite; vertical-align:-2px; margin-right:8px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div class="screen active" id="login-screen">
+  <div class="login-card">
+    <div class="eyebrow">YMRMC · Field Check-in</div>
+    <h1>Employee login</h1>
+    <form id="login-form">
+      <label>Employee ID</label>
+      <input type="text" id="emp-id" placeholder="YMRMC-0001" autocapitalize="characters" required>
+      <label>Password</label>
+      <input type="password" id="emp-pw" required>
+      <button type="submit" class="btn-primary" id="login-btn">Sign in</button>
+      <div class="err" id="login-err"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= LOCATE (radar) ================= -->
+<div class="screen" id="locate-screen">
+  <div class="topbar">
+    <div class="who">Signed in as <span id="who-name"></span></div>
+    <button class="link-btn" id="logout-btn-1">Sign out</button>
+  </div>
+  <div class="body">
+    <div class="radar">
+      <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+      <div class="radar-pulse" id="radar-pulse"></div>
+    </div>
+    <div class="distance-readout" id="distance-readout">—</div>
+    <div class="distance-unit">metres from site</div>
+    <div class="accuracy-note" id="accuracy-note">Acquiring GPS…</div>
+    <div class="status-tag" id="status-tag" style="display:none;"></div>
+  </div>
+  <div class="footer-cta">
+    <button class="btn-primary" id="lock-btn" disabled>Locating…</button>
+  </div>
+</div>
+
+<!-- ================= CAMERA ================= -->
+<div class="screen" id="camera-screen">
+  <div class="camera-wrap">
+    <video id="video" autoplay playsinline muted></video>
+    <div class="camera-overlay-top">
+      <span class="badge-pill" id="cam-badge">— m from site</span>
+    </div>
+    <div class="camera-overlay-bottom">
+      <button class="shutter" id="shutter-btn" aria-label="Capture photo"></button>
+    </div>
+  </div>
+  <canvas id="canvas" style="display:none;"></canvas>
+</div>
+
+<!-- ================= REVIEW ================= -->
+<div class="screen" id="review-screen">
+  <div class="review-photo"><img id="review-img" alt="Captured photo"></div>
+  <div class="review-panel">
+    <div class="meta-row"><span>Employee</span><span id="rv-emp"></span></div>
+    <div class="meta-row"><span>Distance from site</span><span id="rv-dist"></span></div>
+    <div class="meta-row"><span>GPS accuracy</span><span id="rv-acc"></span></div>
+    <div class="meta-row"><span>Captured at</span><span id="rv-time"></span></div>
+    <div class="btn-row">
+      <button class="btn-secondary" id="retake-btn">Retake</button>
+      <button class="btn-primary" id="submit-btn" style="margin-top:0;">Submit</button>
+    </div>
+    <div class="err" id="submit-err"></div>
+  </div>
+</div>
+
+<!-- ================= SUCCESS ================= -->
+<div class="screen" id="success-screen">
+  <div>
+    <div class="check-circle">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+    </div>
+    <h1>Checked in</h1>
+    <p style="color:var(--muted); margin-top:8px;">Your attendance record was saved.</p>
+    <button class="btn-primary" id="again-btn" style="margin-top:28px;">Check in again</button>
+    <button class="btn-secondary" id="logout-btn-2">Sign out</button>
+  </div>
+</div>
+
+<script>
+const sb = supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
+const screens = {};
+['login','locate','camera','review','success'].forEach(id=> screens[id]=document.getElementById(id+'-screen'));
+function show(name){ Object.values(screens).forEach(s=>s.classList.remove('active')); screens[name].classList.add('active'); }
+
+let currentEmployee = null;   // { id, name }
+let bestFix = null;           // { lat, lng, accuracy, distance }
+let watchId = null;
+let stream = null;
+let capturedPhotoBlob = null;
+let lockedFix = null;
+
+// ---------- Haversine distance in metres ----------
+function distanceMeters(lat1, lng1, lat2, lng2){
+  const R = 6371000;
+  const toRad = d => d * Math.PI/180;
+  const dLat = toRad(lat2-lat1), dLng = toRad(lng2-lng1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ---------- Login ----------
+document.getElementById('login-form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const btn = document.getElementById('login-btn');
+  const errBox = document.getElementById('login-err');
+  errBox.textContent = '';
+  const id = document.getElementById('emp-id').value.trim().toUpperCase();
+  const pw = document.getElementById('emp-pw').value;
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Signing in…';
+
+  const { data, error } = await sb.rpc('verify_login', { p_employee_id: id, p_password: pw });
+  btn.disabled = false; btn.textContent = 'Sign in';
+
+  if (error){ errBox.textContent = error.message; return; }
+  if (!data || data.length === 0){ errBox.textContent = 'Incorrect ID or password.'; return; }
+
+  currentEmployee = { id: data[0].employee_id, name: data[0].full_name };
+  document.getElementById('who-name').textContent = currentEmployee.id;
+  show('locate');
+  startLocating();
+});
+
+[document.getElementById('logout-btn-1'), document.getElementById('logout-btn-2')].forEach(b=>{
+  b.addEventListener('click', ()=>{
+    stopLocating(); stopCamera();
+    currentEmployee = null; bestFix = null; lockedFix = null; capturedPhotoBlob = null;
+    document.getElementById('emp-pw').value = '';
+    show('login');
+  });
+});
+
+// ---------- Locate / radar ----------
+function startLocating(){
+  bestFix = null;
+  document.getElementById('lock-btn').disabled = true;
+  document.getElementById('lock-btn').textContent = 'Locating…';
+  document.getElementById('status-tag').style.display = 'none';
+
+  if (!navigator.geolocation){
+    document.getElementById('accuracy-note').textContent = 'Geolocation not supported on this device.';
+    return;
+  }
+  watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, {
+    enableHighAccuracy: true, maximumAge: 0, timeout: 20000
+  });
+}
+function stopLocating(){ if (watchId !== null){ navigator.geolocation.clearWatch(watchId); watchId = null; } }
+
+function onPositionError(err){
+  document.getElementById('accuracy-note').textContent = 'Location error: ' + err.message;
+}
+
+function onPosition(pos){
+  const { latitude, longitude, accuracy } = pos.coords;
+  const dist = distanceMeters(latitude, longitude, APP_CONFIG.SITE_LAT, APP_CONFIG.SITE_LNG);
+  const fix = { lat: latitude, lng: longitude, accuracy, distance: dist };
+
+  // Keep the most precise (lowest-accuracy-value) reading seen so far
+  if (!bestFix || accuracy < bestFix.accuracy) bestFix = fix;
+
+  renderRadar(fix);
+}
+
+function renderRadar(fix){
+  const within = fix.distance <= APP_CONFIG.GEOFENCE_RADIUS_M;
+  const readout = document.getElementById('distance-readout');
+  readout.textContent = fix.distance.toFixed(1);
+  readout.className = 'distance-readout ' + (within ? 'ok' : 'warn');
+
+  document.getElementById('accuracy-note').textContent = `GPS accuracy ±${fix.accuracy.toFixed(1)} m`;
+
+  const pulse = document.getElementById('radar-pulse');
+  pulse.className = 'radar-pulse ' + (within ? '' : 'warn');
+
+  const tag = document.getElementById('status-tag');
+  tag.style.display = 'inline-block';
+  tag.className = 'status-tag ' + (within ? 'ok' : 'warn');
+  tag.textContent = within ? 'Within geofence' : `Move closer — within ${APP_CONFIG.GEOFENCE_RADIUS_M} m required`;
+
+  const lockBtn = document.getElementById('lock-btn');
+  lockBtn.disabled = false;
+  lockBtn.textContent = within ? 'Lock this location' : 'Lock anyway (out of range)';
+}
+
+document.getElementById('lock-btn').addEventListener('click', ()=>{
+  lockedFix = bestFix;
+  stopLocating();
+  show('camera');
+  startCamera();
+});
+
+// ---------- Camera ----------
+async function startCamera(){
+  const badge = document.getElementById('cam-badge');
+  const within = lockedFix.distance <= APP_CONFIG.GEOFENCE_RADIUS_M;
+  badge.className = 'badge-pill ' + (within ? '' : 'warn');
+  badge.textContent = `${lockedFix.distance.toFixed(1)} m from site · accuracy ±${lockedFix.accuracy.toFixed(1)} m`;
+
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    document.getElementById('video').srcObject = stream;
+  }catch(err){
+    alert('Camera access is required to check in: ' + err.message);
+    show('locate'); startLocating();
+  }
+}
+function stopCamera(){
+  if (stream){ stream.getTracks().forEach(t=>t.stop()); stream = null; }
+}
+
+document.getElementById('shutter-btn').addEventListener('click', ()=>{
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  canvas.toBlob(blob=>{
+    capturedPhotoBlob = blob;
+    document.getElementById('review-img').src = URL.createObjectURL(blob);
+    fillReview();
+    stopCamera();
+    show('review');
+  }, 'image/jpeg', 0.9);
+});
+
+// ---------- Review ----------
+function fillReview(){
+  document.getElementById('rv-emp').textContent = currentEmployee.id;
+  document.getElementById('rv-dist').textContent = lockedFix.distance.toFixed(1) + ' m';
+  document.getElementById('rv-acc').textContent = '±' + lockedFix.accuracy.toFixed(1) + ' m';
+  document.getElementById('rv-time').textContent = new Date().toLocaleString();
+}
+
+document.getElementById('retake-btn').addEventListener('click', ()=>{
+  capturedPhotoBlob = null;
+  show('camera');
+  startCamera();
+});
+
+document.getElementById('submit-btn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('submit-btn');
+  const errBox = document.getElementById('submit-err');
+  errBox.textContent = '';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Submitting…';
+
+  try{
+    const path = `${currentEmployee.id}/${Date.now()}.jpg`;
+    const { error: upErr } = await sb.storage.from('attendance-photos').upload(path, capturedPhotoBlob, {
+      contentType: 'image/jpeg', upsert: false
+    });
+    if (upErr) throw upErr;
+
+    const { data: pub } = sb.storage.from('attendance-photos').getPublicUrl(path);
+
+    const within = lockedFix.distance <= APP_CONFIG.GEOFENCE_RADIUS_M;
+    const { error: rpcErr } = await sb.rpc('record_attendance', {
+      p_employee_id: currentEmployee.id,
+      p_photo_url: pub.publicUrl,
+      p_latitude: lockedFix.lat,
+      p_longitude: lockedFix.lng,
+      p_accuracy_m: lockedFix.accuracy,
+      p_distance_m: lockedFix.distance,
+      p_within_geofence: within,
+      p_device_info: navigator.userAgent
+    });
+    if (rpcErr) throw rpcErr;
+
+    show('success');
+  }catch(err){
+    errBox.textContent = err.message || 'Something went wrong. Try again.';
+  }finally{
+    btn.disabled = false; btn.textContent = 'Submit';
+  }
+});
+
+document.getElementById('again-btn').addEventListener('click', ()=>{
+  capturedPhotoBlob = null; lockedFix = null;
+  show('locate'); startLocating();
+});
+</script>
+</body>
+</html>

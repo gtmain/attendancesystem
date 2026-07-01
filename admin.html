@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YMRMC · Admin Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  :root{
+    --bg:#12181B; --panel:#1B2328; --panel-2:#212B31; --border:#2A343A;
+    --text:#EDEFF1; --muted:#8A9499; --accent:#4ADE80; --amber:#F5A524; --red:#F0553F;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif; margin:0 0 4px;}
+  a{color:var(--accent);}
+
+  /* Login screen */
+  #login-view{display:flex; align-items:center; justify-content:center; min-height:100vh; padding:24px;}
+  .login-card{width:100%; max-width:360px; background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:32px;}
+  .eyebrow{font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:0.12em; color:var(--accent); text-transform:uppercase; margin-bottom:10px;}
+  input, select{
+    width:100%; background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    padding:11px 12px; border-radius:8px; font-size:14px; font-family:'Inter',sans-serif; margin-top:6px;
+  }
+  input:focus, select:focus{outline:none; border-color:var(--accent);}
+  label{font-size:12px; color:var(--muted); display:block; margin-top:14px;}
+  button{
+    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14px; cursor:pointer;
+    border-radius:8px; border:none; padding:12px 16px;
+  }
+  .btn-primary{background:var(--accent); color:#0A1210; width:100%; margin-top:20px;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-ghost{background:transparent; color:var(--muted); border:1px solid var(--border);}
+  .err{color:var(--red); font-size:13px; margin-top:10px; min-height:16px;}
+
+  /* App shell */
+  #app-view{display:none;}
+  header{display:flex; justify-content:space-between; align-items:center; padding:18px 28px; border-bottom:1px solid var(--border);}
+  header .brand{display:flex; align-items:center; gap:10px;}
+  .dot{width:9px; height:9px; border-radius:50%; background:var(--accent);}
+  main{max-width:1080px; margin:0 auto; padding:28px;}
+  .grid{display:grid; grid-template-columns:1fr 1.4fr; gap:20px;}
+  @media (max-width:860px){.grid{grid-template-columns:1fr;}}
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:22px; margin-bottom:20px;}
+  .card h2{font-size:16px;}
+  .sub{color:var(--muted); font-size:13px; margin-bottom:16px;}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th{text-align:left; color:var(--muted); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.06em; padding:8px 6px; border-bottom:1px solid var(--border);}
+  td{padding:10px 6px; border-bottom:1px solid var(--border); vertical-align:top;}
+  .badge{padding:3px 9px; border-radius:20px; font-size:11px; font-family:'JetBrains Mono',monospace;}
+  .badge.ok{background:rgba(74,222,128,.14); color:var(--accent);}
+  .badge.warn{background:rgba(245,165,36,.14); color:var(--amber);}
+  .thumb{width:44px; height:44px; border-radius:6px; object-fit:cover; border:1px solid var(--border);}
+  .credential-box{background:var(--panel-2); border:1px dashed var(--accent); border-radius:10px; padding:16px; margin-top:16px;}
+  .credential-box .row{display:flex; justify-content:space-between; align-items:center; margin-top:8px;}
+  .credential-box .val{font-family:'JetBrains Mono',monospace; font-size:15px; color:var(--accent);}
+  .copy-btn{background:var(--panel); border:1px solid var(--border); color:var(--muted); padding:5px 10px; font-size:11px; border-radius:6px;}
+  .note{font-size:12px; color:var(--muted); margin-top:10px; line-height:1.5;}
+  .empty{color:var(--muted); font-size:13px; padding:16px 0;}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login-view">
+  <div class="login-card">
+    <div class="eyebrow">YMRMC · Admin</div>
+    <h1>Sign in</h1>
+    <div class="sub" style="margin-top:6px;">Use the admin email &amp; password created in Supabase Auth.</div>
+    <form id="login-form">
+      <label>Email</label>
+      <input type="email" id="admin-email" required autocomplete="username">
+      <label>Password</label>
+      <input type="password" id="admin-password" required autocomplete="current-password">
+      <button type="submit" class="btn-primary">Sign in</button>
+      <div class="err" id="login-err"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app-view">
+  <header>
+    <div class="brand"><span class="dot"></span><strong style="font-family:'Space Grotesk';">YMRMC Attendance · Admin</strong></div>
+    <button class="btn-ghost" id="signout-btn">Sign out</button>
+  </header>
+
+  <main>
+    <div class="grid">
+      <!-- Add employee -->
+      <div class="card">
+        <h2>Add employee</h2>
+        <div class="sub">Generates an ID and a one-time password for the employee.</div>
+        <form id="add-form">
+          <label>Full name</label>
+          <input type="text" id="f-name" required>
+          <label>Phone</label>
+          <input type="text" id="f-phone">
+          <label>Email</label>
+          <input type="email" id="f-email">
+          <label>Designation</label>
+          <input type="text" id="f-designation">
+          <label>Department</label>
+          <input type="text" id="f-department">
+          <button type="submit" class="btn-primary" id="add-btn">Generate ID &amp; password</button>
+          <div class="err" id="add-err"></div>
+        </form>
+
+        <div class="credential-box" id="credential-box" style="display:none;">
+          <div class="eyebrow" style="margin-bottom:0;">Share these with the employee — shown once</div>
+          <div class="row"><span class="sub" style="margin:0;">Employee ID</span><span class="val" id="cred-id"></span></div>
+          <div class="row"><span class="sub" style="margin:0;">Password</span><span class="val" id="cred-pw"></span></div>
+          <button class="copy-btn" id="copy-cred" style="margin-top:12px;">Copy both</button>
+        </div>
+      </div>
+
+      <!-- Roster + attendance -->
+      <div>
+        <div class="card">
+          <h2>Employee roster</h2>
+          <div class="sub" id="roster-sub">Loading…</div>
+          <table>
+            <thead><tr><th>ID</th><th>Name</th><th>Department</th></tr></thead>
+            <tbody id="roster-body"></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <h2>Attendance log</h2>
+          <div class="sub" id="log-sub">Most recent check-ins, latest first.</div>
+          <table>
+            <thead><tr><th>Photo</th><th>Employee</th><th>Time</th><th>Distance</th><th>Status</th></tr></thead>
+            <tbody id="log-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const sb = supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
+
+const loginView = document.getElementById('login-view');
+const appView = document.getElementById('app-view');
+
+async function checkSession(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if (session){ showApp(); } else { showLogin(); }
+}
+function showLogin(){ loginView.style.display='flex'; appView.style.display='none'; }
+function showApp(){ loginView.style.display='none'; appView.style.display='block'; loadRoster(); loadLog(); }
+
+document.getElementById('login-form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const email = document.getElementById('admin-email').value.trim();
+  const password = document.getElementById('admin-password').value;
+  const errBox = document.getElementById('login-err');
+  errBox.textContent = '';
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error){ errBox.textContent = error.message; return; }
+  showApp();
+});
+
+document.getElementById('signout-btn').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  showLogin();
+});
+
+document.getElementById('add-form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const btn = document.getElementById('add-btn');
+  const errBox = document.getElementById('add-err');
+  errBox.textContent = '';
+  btn.disabled = true; btn.textContent = 'Generating…';
+
+  const payload = {
+    p_full_name: document.getElementById('f-name').value.trim(),
+    p_phone: document.getElementById('f-phone').value.trim() || null,
+    p_email: document.getElementById('f-email').value.trim() || null,
+    p_designation: document.getElementById('f-designation').value.trim() || null,
+    p_department: document.getElementById('f-department').value.trim() || null,
+  };
+
+  const { data, error } = await sb.rpc('create_employee', payload);
+  btn.disabled = false; btn.textContent = 'Generate ID & password';
+
+  if (error){ errBox.textContent = error.message; return; }
+  const row = data[0];
+  document.getElementById('cred-id').textContent = row.employee_id;
+  document.getElementById('cred-pw').textContent = row.temp_password;
+  document.getElementById('credential-box').style.display = 'block';
+  document.getElementById('add-form').reset();
+  loadRoster();
+});
+
+document.getElementById('copy-cred').addEventListener('click', ()=>{
+  const id = document.getElementById('cred-id').textContent;
+  const pw = document.getElementById('cred-pw').textContent;
+  navigator.clipboard.writeText(`Employee ID: ${id}\nPassword: ${pw}`);
+  const btn = document.getElementById('copy-cred');
+  const old = btn.textContent; btn.textContent = 'Copied'; setTimeout(()=>btn.textContent=old, 1200);
+});
+
+async function loadRoster(){
+  const sub = document.getElementById('roster-sub');
+  const body = document.getElementById('roster-body');
+  const { data, error } = await sb.from('employees').select('id, full_name, department').order('id', { ascending:false });
+  if (error){ sub.textContent = error.message; return; }
+  sub.textContent = `${data.length} employee${data.length===1?'':'s'}`;
+  body.innerHTML = data.length ? data.map(e=>`
+    <tr><td class="mono">${e.id}</td><td>${e.full_name}</td><td>${e.department||'—'}</td></tr>
+  `).join('') : '<tr><td colspan="3" class="empty">No employees yet.</td></tr>';
+}
+
+async function loadLog(){
+  const sub = document.getElementById('log-sub');
+  const body = document.getElementById('log-body');
+  const { data, error } = await sb.from('attendance')
+    .select('photo_url, employee_id, distance_m, within_geofence, captured_at')
+    .order('captured_at', { ascending:false }).limit(30);
+  if (error){ sub.textContent = error.message; return; }
+  body.innerHTML = data.length ? data.map(r=>`
+    <tr>
+      <td><img class="thumb" src="${r.photo_url}" alt=""></td>
+      <td class="mono">${r.employee_id}</td>
+      <td class="mono">${new Date(r.captured_at).toLocaleString()}</td>
+      <td class="mono">${r.distance_m.toFixed(1)} m</td>
+      <td><span class="badge ${r.within_geofence?'ok':'warn'}">${r.within_geofence?'In range':'Out of range'}</span></td>
+    </tr>
+  `).join('') : '<tr><td colspan="5" class="empty">No check-ins yet.</td></tr>';
+}
+
+checkSession();
+</script>
+</body>
+</html>
