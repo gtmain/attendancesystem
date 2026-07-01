@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YMRMC · Attendance System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12181B; --panel:#1B2328; --border:#2A343A; --text:#EDEFF1; --muted:#8A9499; --accent:#4ADE80;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; min-height:100vh; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif;
+       display:flex; align-items:center; justify-content:center; padding:24px;}
+  .wrap{width:100%; max-width:420px; text-align:center;}
+  .eyebrow{font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.14em; color:var(--accent); text-transform:uppercase; margin-bottom:10px;}
+  h1{font-family:'Space Grotesk',sans-serif; margin:0 0 8px; font-size:26px;}
+  p.sub{color:var(--muted); margin:0 0 32px; font-size:14px;}
+  .card{display:block; background:var(--panel); border:1px solid var(--border); border-radius:14px;
+        padding:20px; margin-bottom:14px; text-decoration:none; color:var(--text); text-align:left;
+        transition:border-color .15s;}
+  .card:hover{border-color:var(--accent);}
+  .card .label{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16px; margin-bottom:4px;}
+  .card .desc{color:var(--muted); font-size:13px;}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="eyebrow">YMRMC Attendance</div>
+    <h1>Choose where you're going</h1>
+    <p class="sub">Field check-in for employees, or the console for admins.</p>
+
+    <a class="card" href="employee.html">
+      <div class="label">Employee check-in →</div>
+      <div class="desc">Sign in with your Employee ID and password to mark attendance.</div>
+    </a>
+
+    <a class="card" href="admin.html">
+      <div class="label">Admin console →</div>
+      <div class="desc">Add employees, view the roster, and review the attendance log.</div>
+    </a>
+  </div>
+</body>
+</html>
